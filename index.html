@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Script Cleaner — Scan Landing Page</title>
+<style>
+  :root{
+    --bg:#0E1116; --panel:#161B22; --panel-2:#1C222B; --line:#2A3140;
+    --text:#E6E9EF; --muted:#8A93A3; --safe:#3DD68C; --warn:#E8B04B; --danger:#E5484D;
+    --mono: ui-monospace,"JetBrains Mono","SFMono-Regular",Menlo,Consolas,monospace;
+    --sans: -apple-system,"Inter","Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;padding:32px 20px 80px;}
+  .wrap{max-width:1080px;margin:0 auto;}
+  h1{font-size:22px;font-weight:650;margin:0 0 6px;}
+  header p{color:var(--muted);margin:0;font-size:14px;max-width:64ch;}
+
+  .tabs{display:flex;gap:8px;margin:22px 0 14px;}
+  .tab{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:transparent;
+    color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;}
+  .tab.active{background:var(--text);color:#11151B;border-color:var(--text);}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;}
+  .panel-title{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  textarea, input[type=text]{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;
+    color:var(--text);font-family:var(--mono);font-size:12.5px;padding:12px;outline:none;
+  }
+  textarea{min-height:220px; resize:vertical;}
+  textarea:focus, input:focus{border-color:#3D4759;}
+
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px;}
+  button{font-family:var(--sans);font-size:14px;font-weight:600;cursor:pointer;border-radius:8px;
+    padding:10px 16px;border:1px solid transparent;}
+  .btn-primary{background:var(--text);color:#11151B;border:none;}
+  .btn-primary:hover{opacity:.9;}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-secondary{background:transparent;color:var(--text);border:1px solid var(--line);}
+  .btn-secondary:hover{border-color:#4A5568;}
+
+  .hint{color:var(--muted);font-size:12.5px;margin-top:8px;}
+  .error-box{color:var(--danger);font-size:13px;margin-top:12px;}
+
+  .summary{display:flex;gap:14px;margin:20px 0 16px;flex-wrap:wrap;}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:13px;min-width:140px;}
+  .stat b{display:block;font-size:20px;margin-top:2px;}
+  .stat.danger b{color:var(--danger);} .stat.warn b{color:var(--warn);} .stat.safe b{color:var(--safe);}
+
+  .findings{display:flex;flex-direction:column;gap:10px;margin-bottom:20px;}
+  .finding{border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--panel-2);font-size:13px;}
+  .finding.danger{border-left:3px solid var(--danger);}
+  .finding.warn{border-left:3px solid var(--warn);}
+  .finding-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:4px;}
+  .tag{font-size:11px;padding:2px 8px;border-radius:99px;font-weight:600;}
+  .tag.danger{background:rgba(229,72,77,.15);color:var(--danger);}
+  .tag.warn{background:rgba(232,176,75,.15);color:var(--warn);}
+  .finding code{display:block;margin-top:8px;padding:8px 10px;background:#0B0E13;border-radius:6px;
+    font-family:var(--mono);font-size:11.5px;color:#B8C0CC;white-space:pre-wrap;word-break:break-all;
+    max-height:120px;overflow:auto;}
+  .empty-state{color:var(--muted);font-size:13px;text-align:center;padding:30px 10px;}
+
+  .resource-block{margin-bottom:14px;}
+  .resource-head{font-size:12.5px;color:var(--muted);margin-bottom:6px;word-break:break-all;}
+  .resource-head b{color:var(--text);}
+
+  #hidden-input{display:none;}
+  #hidden-url{display:none;}
+
+  footer{margin-top:28px;color:var(--muted);font-size:12px;max-width:70ch;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
+    border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite;margin-right:8px;vertical-align:-2px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Script Cleaner</h1>
+    <p>Cek landing page kamu (termasuk link pages.dev) atau tempel kode HTML manual. Deteksi & pembersihan berjalan di server (Cloudflare Pages Function), jadi bisa fetch URL apapun tanpa terkendala CORS.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" id="tabUrl">Scan dari URL</button>
+    <button class="tab" id="tabHtml">Tempel Kode HTML</button>
+  </div>
+
+  <div id="hidden-url" style="display:block;">
+    <div class="panel">
+      <div class="panel-title">URL LANDING PAGE</div>
+      <input type="text" id="urlInput" placeholder="https://namamu.pages.dev">
+      <div class="hint">Bisa link pages.dev, domain custom, atau situs apapun yang HTML-nya bisa diakses publik.</div>
+    </div>
+  </div>
+
+  <div id="hidden-input">
+    <div class="panel">
+      <div class="panel-title">TEMPEL KODE HTML</div>
+      <textarea id="htmlInput" placeholder="Tempel kode HTML di sini..."></textarea>
+    </div>
+  </div>
+
+  <div class="row">
+    <button class="btn-primary" id="scanBtn">Scan &amp; Bersihkan</button>
+    <button class="btn-secondary" id="downloadBtn" style="display:none;">Download Hasil Bersih</button>
+  </div>
+  <div class="error-box" id="errorBox" style="display:none;"></div>
+
+  <div class="summary" id="summary" style="display:none;"></div>
+  <div class="findings" id="findings"></div>
+
+  <div id="externalWrap"></div>
+
+  <div class="panel" id="cleanedPanel" style="display:none;">
+    <div class="panel-title">HASIL BERSIH (HTML utama)</div>
+    <textarea id="cleanedOutput" readonly></textarea>
+  </div>
+
+  <footer>
+    Deteksi berbasis pola/heuristik (bukan antivirus lengkap). File <code>.js</code> eksternal yang terdeteksi
+    bermasalah tidak otomatis dibersihkan (karena file itu bukan milik server ini) — kamu perlu edit source-nya
+    sendiri lalu redeploy. Selalu review manual dan backup sebelum menimpa file production.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const tabUrl = document.getElementById('tabUrl');
+  const tabHtml = document.getElementById('tabHtml');
+  const wrapUrl = document.getElementById('hidden-url');
+  const wrapHtml = document.getElementById('hidden-input');
+  const urlInput = document.getElementById('urlInput');
+  const htmlInput = document.getElementById('htmlInput');
+  const scanBtn = document.getElementById('scanBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const errorBox = document.getElementById('errorBox');
+  const summaryEl = document.getElementById('summary');
+  const findingsEl = document.getElementById('findings');
+  const externalWrap = document.getElementById('externalWrap');
+  const cleanedPanel = document.getElementById('cleanedPanel');
+  const cleanedOutput = document.getElementById('cleanedOutput');
+
+  let mode = 'url';
+  let lastCleaned = '';
+
+  function switchTab(newMode){
+    mode = newMode;
+    tabUrl.classList.toggle('active', mode === 'url');
+    tabHtml.classList.toggle('active', mode === 'html');
+    wrapUrl.style.display = mode === 'url' ? 'block' : 'none';
+    wrapHtml.style.display = mode === 'html' ? 'block' : 'none';
+  }
+  tabUrl.addEventListener('click', () => switchTab('url'));
+  tabHtml.addEventListener('click', () => switchTab('html'));
+  switchTab('url');
+
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderFindingCard(f){
+    const tagText = f.removed ? 'DIHAPUS OTOMATIS' : (f.level === 'danger' ? 'BERBAHAYA' : 'PERLU DITINJAU');
+    return `
+      <div class="finding ${f.level}">
+        <div class="finding-head">
+          <strong>${escapeHtml(f.label)}${f.context ? ' <span style="color:var(--muted);font-weight:400;">(' + escapeHtml(f.context) + ')</span>' : ''}</strong>
+          <span class="tag ${f.level}">${tagText}</span>
+        </div>
+        <div>${escapeHtml(f.desc)}</div>
+        <code>${escapeHtml(f.sample)}</code>
+      </div>`;
+  }
+
+  function render(data){
+    const s = data.summary;
+    summaryEl.style.display = 'flex';
+    summaryEl.innerHTML = `
+      <div class="stat danger"><span>Berbahaya</span><b>${s.dangerCount}</b></div>
+      <div class="stat warn"><span>Perlu Ditinjau</span><b>${s.warnCount}</b></div>
+      <div class="stat safe"><span>Dihapus Otomatis</span><b>${s.removedCount}</b></div>
+    `;
+
+    if(data.findings.length === 0){
+      findingsEl.innerHTML = '<div class="empty-state">Tidak ada pola mencurigakan di HTML utama.</div>';
+    } else {
+      findingsEl.innerHTML = data.findings.map(renderFindingCard).join('');
+    }
+
+    externalWrap.innerHTML = '';
+    if(data.externalResults && data.externalResults.length){
+      const title = document.createElement('div');
+      title.className = 'panel-title';
+      title.style.marginTop = '4px';
+      title.textContent = `FILE .JS EKSTERNAL YANG DISCAN (${data.externalResults.length})`;
+      externalWrap.appendChild(title);
+
+      data.externalResults.forEach(r => {
+        const block = document.createElement('div');
+        block.className = 'resource-block';
+        if(!r.ok){
+          block.innerHTML = `<div class="resource-head">⚠️ Gagal mengambil: <b>${escapeHtml(r.url)}</b></div>`;
+        } else if(r.findings.length === 0){
+          block.innerHTML = `<div class="resource-head"><b>${escapeHtml(r.url)}</b> — tidak ada pola mencurigakan.</div>`;
+        } else {
+          block.innerHTML = `<div class="resource-head"><b>${escapeHtml(r.url)}</b> — ${r.findings.length} temuan:</div>` +
+            r.findings.map(renderFindingCard).join('');
+        }
+        externalWrap.appendChild(block);
+      });
+    }
+
+    lastCleaned = data.cleaned || '';
+    cleanedOutput.value = lastCleaned;
+    cleanedPanel.style.display = lastCleaned ? 'block' : 'none';
+    downloadBtn.style.display = lastCleaned ? 'inline-block' : 'none';
+  }
+
+  async function runScan(){
+    errorBox.style.display = 'none';
+    summaryEl.style.display = 'none';
+    findingsEl.innerHTML = '';
+    externalWrap.innerHTML = '';
+    cleanedPanel.style.display = 'none';
+    downloadBtn.style.display = 'none';
+
+    let payload;
+    if(mode === 'url'){
+      const url = urlInput.value.trim();
+      if(!url){ showError('Masukkan URL dulu, misalnya https://namamu.pages.dev'); return; }
+      payload = { mode: 'url', url };
+    } else {
+      const html = htmlInput.value;
+      if(!html.trim()){ showError('Tempel kode HTML dulu.'); return; }
+      payload = { mode: 'html', html };
+    }
+
+    scanBtn.disabled = true;
+    scanBtn.innerHTML = '<span class="spinner"></span>Memindai...';
+
+    try{
+      const res = await fetch('/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if(!res.ok){
+        showError(data.error || 'Gagal memproses permintaan.');
+        return;
+      }
+      render(data);
+    } catch(e){
+      showError('Terjadi kesalahan jaringan: ' + e.message);
+    } finally {
+      scanBtn.disabled = false;
+      scanBtn.textContent = 'Scan & Bersihkan';
+    }
+  }
+
+  function showError(msg){
+    errorBox.textContent = msg;
+    errorBox.style.display = 'block';
+  }
+
+  scanBtn.addEventListener('click', runScan);
+
+  downloadBtn.addEventListener('click', () => {
+    const blob = new Blob([lastCleaned], {type:'text/html'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'landing-page-clean.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+})();
+</script>
+</body>
+</html>
