@@ -5,6 +5,83 @@
 //         atau { mode: "html", html: "<html>...</html>" }
 
 // ------------------------------------------------------------------
+// 0. REBRANDING (opsional) — ganti nama brand, title, deskripsi, logo, icon, gambar lain
+// ------------------------------------------------------------------
+function applyRebrand(html, rebrand) {
+  if (!rebrand) return html;
+  let out = html;
+
+  // Title
+  if (rebrand.title && rebrand.title.trim()) {
+    const newTitle = rebrand.title.trim();
+    if (/<title[^>]*>[\s\S]*?<\/title>/i.test(out)) {
+      out = out.replace(/<title[^>]*>[\s\S]*?<\/title>/i, `<title>${escapeForHtmlText(newTitle)}</title>`);
+    } else if (/<head[^>]*>/i.test(out)) {
+      out = out.replace(/<head([^>]*)>/i, `<head$1>\n<title>${escapeForHtmlText(newTitle)}</title>`);
+    }
+  }
+
+  // Meta description (+ og:description, twitter:description best-effort)
+  if (rebrand.description && rebrand.description.trim()) {
+    const desc = rebrand.description.trim().replace(/"/g, '&quot;');
+    out = replaceOrInsertMeta(out, /<meta\s+name=["']description["'][^>]*>/i,
+      `<meta name="description" content="${desc}">`);
+    out = replaceOrInsertMeta(out, /<meta\s+property=["']og:description["'][^>]*>/i,
+      `<meta property="og:description" content="${desc}">`, false);
+    out = replaceOrInsertMeta(out, /<meta\s+name=["']twitter:description["'][^>]*>/i,
+      `<meta name="twitter:description" content="${desc}">`, false);
+  }
+
+  // Nama brand: ganti semua kemunculan teks (case-insensitive)
+  if (rebrand.brandOld && rebrand.brandOld.trim() && rebrand.brandNew !== undefined) {
+    const escaped = rebrand.brandOld.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(escaped, 'gi'), rebrand.brandNew);
+  }
+
+  // Logo: ganti semua kemunculan URL/path logo lama dengan yang baru
+  if (rebrand.logoOld && rebrand.logoOld.trim() && rebrand.logoNew && rebrand.logoNew.trim()) {
+    const escaped = rebrand.logoOld.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out = out.replace(new RegExp(escaped, 'g'), rebrand.logoNew.trim());
+  }
+
+  // Icon / favicon baru — ganti semua <link rel="icon|shortcut icon|apple-touch-icon" href="...">
+  if (rebrand.iconNew && rebrand.iconNew.trim()) {
+    const iconUrl = rebrand.iconNew.trim();
+    const iconTagRe = /<link\s+[^>]*rel=["'](?:shortcut icon|icon|apple-touch-icon)["'][^>]*>/gi;
+    if (iconTagRe.test(out)) {
+      out = out.replace(iconTagRe, (tag) => tag.replace(/href=["'][^"']*["']/i, `href="${iconUrl}"`));
+    } else if (/<head[^>]*>/i.test(out)) {
+      out = out.replace(/<head([^>]*)>/i, `<head$1>\n<link rel="icon" href="${iconUrl}">`);
+    }
+  }
+
+  // Daftar penggantian link gambar/aset lain: [{old, new}, ...]
+  if (Array.isArray(rebrand.imageReplacements)) {
+    rebrand.imageReplacements.forEach(({ old: oldUrl, new: newUrl }) => {
+      if (!oldUrl || !oldUrl.trim() || newUrl === undefined) return;
+      const escaped = oldUrl.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp(escaped, 'g'), newUrl.trim());
+    });
+  }
+
+  return out;
+}
+
+function escapeForHtmlText(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function replaceOrInsertMeta(html, findRe, newTag, insertIfMissing = true) {
+  if (findRe.test(html)) {
+    return html.replace(findRe, newTag);
+  }
+  if (insertIfMissing && /<head[^>]*>/i.test(html)) {
+    return html.replace(/<head([^>]*)>/i, `<head$1>\n${newTag}`);
+  }
+  return html;
+}
+
+// ------------------------------------------------------------------
 // 1. ATURAN DETEKSI
 // ------------------------------------------------------------------
 // scope: 'html'  -> dicek di konten HTML (termasuk isi <script> inline)
@@ -229,7 +306,8 @@ export async function onRequestPost(context) {
   }
 
   const autoRemove = body.autoRemove === true;
-  const { cleaned, findings } = scanAndCleanHtml(mainHtml, autoRemove);
+  const rebrandedHtml = applyRebrand(mainHtml, body.rebrand);
+  const { cleaned, findings } = scanAndCleanHtml(rebrandedHtml, autoRemove);
 
   // Ambil & scan file .js eksternal (khusus mode URL, karena butuh base URL absolut)
   const externalResults = [];
