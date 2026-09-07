@@ -55,9 +55,9 @@ function applyRebrand(html, rebrand) {
     }
   }
 
-  // Daftar penggantian link gambar/aset lain: [{old, new}, ...]
-  if (Array.isArray(rebrand.imageReplacements)) {
-    rebrand.imageReplacements.forEach(({ old: oldUrl, new: newUrl }) => {
+  // Daftar penggantian link lain (login, CTA, sosial media, gambar, dll): [{old, new}, ...]
+  if (Array.isArray(rebrand.linkReplacements)) {
+    rebrand.linkReplacements.forEach(({ old: oldUrl, new: newUrl }) => {
       if (!oldUrl || !oldUrl.trim() || newUrl === undefined) return;
       const escaped = oldUrl.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       out = out.replace(new RegExp(escaped, 'g'), newUrl.trim());
