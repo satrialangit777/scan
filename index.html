@@ -89,7 +89,7 @@
   <div id="hidden-url" style="display:block;">
     <div class="panel">
       <div class="panel-title">URL LANDING PAGE</div>
-      <input type="text" id="urlInput" placeholder="link domain">
+      <input type="text" id="urlInput" placeholder="Link Domain">
       <div class="hint">Bisa link pages.dev, domain custom, atau situs apapun yang HTML-nya bisa diakses publik.</div>
     </div>
   </div>
@@ -100,6 +100,14 @@
       <textarea id="htmlInput" placeholder="Tempel kode HTML di sini..."></textarea>
     </div>
   </div>
+
+  <div class="row">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;">
+      <input type="checkbox" id="autoRemoveCheck">
+      Hapus otomatis yang terdeteksi berbahaya (centang kalau sudah yakin cek laporan dulu)
+    </label>
+  </div>
+  <div class="hint" style="margin-top:2px;">Default: tool cuma <b>melaporkan</b>, tidak menghapus apa pun — supaya script legit (tracking pixel, chat widget, dll) yang kebetulan cocok pola tidak ikut rusak. Review dulu daftar temuan, baru centang ini kalau mau hasil bersihnya benar-benar dipotong.</div>
 
   <div class="row">
     <button class="btn-primary" id="scanBtn">Scan &amp; Bersihkan</button>
@@ -134,6 +142,7 @@
   const htmlInput = document.getElementById('htmlInput');
   const scanBtn = document.getElementById('scanBtn');
   const downloadBtn = document.getElementById('downloadBtn');
+  const autoRemoveCheck = document.getElementById('autoRemoveCheck');
   const errorBox = document.getElementById('errorBox');
   const summaryEl = document.getElementById('summary');
   const findingsEl = document.getElementById('findings');
@@ -212,8 +221,9 @@
 
     lastCleaned = data.cleaned || '';
     cleanedOutput.value = lastCleaned;
-    cleanedPanel.style.display = lastCleaned ? 'block' : 'none';
-    downloadBtn.style.display = lastCleaned ? 'inline-block' : 'none';
+    const showCleanPanel = !!lastCleaned && data.autoRemove;
+    cleanedPanel.style.display = showCleanPanel ? 'block' : 'none';
+    downloadBtn.style.display = showCleanPanel ? 'inline-block' : 'none';
   }
 
   async function runScan(){
@@ -228,11 +238,11 @@
     if(mode === 'url'){
       const url = urlInput.value.trim();
       if(!url){ showError('Masukkan URL dulu, misalnya https://namamu.pages.dev'); return; }
-      payload = { mode: 'url', url };
+      payload = { mode: 'url', url, autoRemove: autoRemoveCheck.checked };
     } else {
       const html = htmlInput.value;
       if(!html.trim()){ showError('Tempel kode HTML dulu.'); return; }
-      payload = { mode: 'html', html };
+      payload = { mode: 'html', html, autoRemove: autoRemoveCheck.checked };
     }
 
     scanBtn.disabled = true;
