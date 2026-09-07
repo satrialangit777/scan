@@ -165,9 +165,10 @@
     </div>
 
     <div class="field">
-      <label>Link gambar lain yang mau diganti (logo tambahan, banner, dll)</label>
+      <label>Link lain yang mau diganti (login, tombol CTA, WhatsApp, sosial media, gambar, dll)</label>
       <div id="imgRows"></div>
-      <button type="button" class="btn-ghost" id="addImgRow">+ Tambah link gambar</button>
+      <button type="button" class="btn-ghost" id="addImgRow">+ Tambah link</button>
+      <p class="hint">Cth: link lama <code>https://situs-lama.com/login</code> → link baru <code>https://situs-baru.com/login</code>. Bisa ditambah berkali-kali buat link login, daftar, WhatsApp, Instagram, dst.</p>
     </div>
   </div>
 
@@ -238,8 +239,8 @@
     const row = document.createElement('div');
     row.className = 'img-row';
     row.innerHTML = `
-      <input type="text" class="imgOld" placeholder="Link gambar lama (cth: /assets/banner.jpg)" value="${oldVal ? escapeAttr(oldVal) : ''}">
-      <input type="text" class="imgNew" placeholder="Link gambar baru" value="${newVal ? escapeAttr(newVal) : ''}">
+      <input type="text" class="imgOld" placeholder="Link lama (cth: /login lama atau https://wa.me/62xxx lama)" value="${oldVal ? escapeAttr(oldVal) : ''}">
+      <input type="text" class="imgNew" placeholder="Link baru" value="${newVal ? escapeAttr(newVal) : ''}">
       <button type="button" class="btn-secondary removeRow">Hapus</button>
     `;
     row.querySelector('.removeRow').addEventListener('click', () => row.remove());
@@ -305,7 +306,7 @@
       logoOld: document.getElementById('logoOld').value.trim(),
       logoNew: document.getElementById('logoNew').value.trim(),
       iconNew: document.getElementById('iconNew').value.trim(),
-      imageReplacements,
+      linkReplacements: imageReplacements,
     };
 
     processBtn.disabled = true;
