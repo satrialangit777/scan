@@ -65,32 +65,37 @@ function escapeSample(s) {
   return s.length > 200 ? s.slice(0, 200) + '…' : s;
 }
 
-// Analisis + bersihkan konten HTML utama (menghapus <script>/<iframe> berbahaya)
-function scanAndCleanHtml(html) {
+// Analisis + bersihkan konten HTML utama.
+// autoRemove=false (default): semua temuan hanya dilaporkan, TIDAK ada yang dihapus —
+// supaya script legit yang kebetulan match pola (tracking pixel, chat widget, dll) gak ikut rusak.
+// autoRemove=true: baru script/iframe dengan level 'danger' dihapus.
+function scanAndCleanHtml(html, autoRemove) {
   const findings = [];
 
   let cleaned = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (block) => {
     const hits = RULES.filter(r => (r.scope === 'html' || r.scope === 'both') && r.re.test(block));
     if (hits.length === 0) return block;
     const hasDanger = hits.some(h => h.level === 'danger');
+    const willRemove = autoRemove && hasDanger;
     hits.forEach(h => {
       const m = block.match(h.re);
       findings.push({
         level: h.level, label: h.label, desc: h.desc,
-        sample: escapeSample(m ? m[0] : ''), context: 'inline <script>', removed: hasDanger,
+        sample: escapeSample(m ? m[0] : ''), context: 'inline <script>', removed: willRemove,
       });
     });
-    return hasDanger ? '<!-- [DIHAPUS oleh Script Cleaner: script berbahaya terdeteksi] -->' : block;
+    return willRemove ? '<!-- [DIHAPUS oleh Script Cleaner: script berbahaya terdeteksi] -->' : block;
   });
 
   const hiddenIframeRule = RULES.find(r => r.id === 'hidden_iframe');
   cleaned = cleaned.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>|<iframe\b[^>]*\/?>/gi, (block) => {
     if (hiddenIframeRule.re.test(block)) {
+      const willRemove = autoRemove;
       findings.push({
         level: 'danger', label: hiddenIframeRule.label, desc: hiddenIframeRule.desc,
-        sample: escapeSample(block), context: '<iframe>', removed: true,
+        sample: escapeSample(block), context: '<iframe>', removed: willRemove,
       });
-      return '<!-- [DIHAPUS oleh Script Cleaner: iframe tersembunyi terdeteksi] -->';
+      return willRemove ? '<!-- [DIHAPUS oleh Script Cleaner: iframe tersembunyi terdeteksi] -->' : block;
     }
     return block;
   });
@@ -106,9 +111,11 @@ function scanAndCleanHtml(html) {
   const jsUriMatches = html.match(new RegExp(jsUriRule.re.source, 'gi')) || [];
   jsUriMatches.forEach(m => findings.push({
     level: 'danger', label: jsUriRule.label, desc: jsUriRule.desc,
-    sample: escapeSample(m), context: 'atribut tag', removed: true,
+    sample: escapeSample(m), context: 'atribut tag', removed: autoRemove,
   }));
-  cleaned = cleaned.replace(new RegExp(jsUriRule.re.source, 'gi'), 'onclick="/* dihapus: javascript: URI mencurigakan */"');
+  if (autoRemove) {
+    cleaned = cleaned.replace(new RegExp(jsUriRule.re.source, 'gi'), 'onclick="/* dihapus: javascript: URI mencurigakan */"');
+  }
 
   // Aturan http_script / shorturl_script cukup dilaporkan (tag <script src> tetap dibiarkan
   // karena file eksternalnya sendiri akan dianalisis terpisah).
@@ -221,7 +228,8 @@ export async function onRequestPost(context) {
     if (!mainHtml.trim()) return json({ error: 'Kode HTML kosong.' }, 400);
   }
 
-  const { cleaned, findings } = scanAndCleanHtml(mainHtml);
+  const autoRemove = body.autoRemove === true;
+  const { cleaned, findings } = scanAndCleanHtml(mainHtml, autoRemove);
 
   // Ambil & scan file .js eksternal (khusus mode URL, karena butuh base URL absolut)
   const externalResults = [];
@@ -247,6 +255,7 @@ export async function onRequestPost(context) {
   return json({
     mode,
     baseUrl: baseUrl || null,
+    autoRemove,
     cleaned,
     findings,
     externalResults,
