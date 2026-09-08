@@ -22,6 +22,9 @@
   .section-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;
     display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .section-desc{color:var(--muted);font-size:12.5px;margin:0 0 16px;}
+  .subsection-title{font-size:12.5px;font-weight:700;color:var(--text);margin:18px 0 6px;
+    padding-top:14px;border-top:1px solid var(--line);}
+  .subsection-title:first-of-type{border-top:none;padding-top:0;margin-top:4px;}
 
   .tabs{display:flex;gap:8px;margin-bottom:14px;}
   .tab{padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:transparent;
@@ -41,10 +44,11 @@
   .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media (max-width:700px){ .field-row{grid-template-columns:1fr;} }
 
-  #imgRows{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
-  .img-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;}
-  @media (max-width:700px){ .img-row{grid-template-columns:1fr;} }
-  .img-row button{padding:8px 10px;}
+  .pair-rows{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+  .pair-row{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start;}
+  @media (max-width:700px){ .pair-row{grid-template-columns:1fr;} }
+  .pair-row textarea{min-height:64px;font-size:12px;}
+  .pair-row button{padding:8px 10px;align-self:start;}
 
   .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer;}
 
@@ -95,7 +99,7 @@
 <div class="wrap">
   <header>
     <h1>Landing Page Toolkit</h1>
-    <p>Masukin sumber halaman + isi field yang mau diganti (brand, logo, icon, title, deskripsi). Klik satu tombol: branding diganti sesuai isian kamu, sekaligus script/link berbahaya otomatis dibersihkan.</p>
+    <p>Masukin sumber halaman + isi field yang mau diganti (brand, logo, icon, title, FAQ, review, keyword). Klik satu tombol: semua diganti sesuai isian kamu, sekaligus script/link berbahaya otomatis dibersihkan.</p>
   </header>
 
   <!-- 1. SUMBER -->
@@ -124,7 +128,7 @@
 
   <!-- 2. BRANDING -->
   <div class="section">
-    <div class="section-title"><span class="section-num">2</span> Ganti Branding <span style="color:var(--muted);font-weight:400;font-size:12px;">(opsional — kosongkan yang gak mau diubah)</span></div>
+    <div class="section-title"><span class="section-num">2</span> Ganti Branding &amp; Konten <span style="color:var(--muted);font-weight:400;font-size:12px;">(opsional — kosongkan yang gak mau diubah)</span></div>
     <p class="section-desc">Semua field di sini opsional. Yang dikosongkan gak akan disentuh.</p>
 
     <div class="field-row">
@@ -141,11 +145,22 @@
     <div class="field">
       <label>Judul halaman baru (tag &lt;title&gt;)</label>
       <input type="text" id="titleNew" placeholder="cth: Brand Baru — Solusi Terbaik Kamu">
+      <p class="hint">H1 di halaman otomatis dibikin <b>sama persis</b> dengan judul ini, kecuali kamu isi field H1 kustom di bawah.</p>
+    </div>
+
+    <div class="field">
+      <label>H1 kustom (opsional — kosongkan biar sama dengan judul di atas)</label>
+      <input type="text" id="h1New" placeholder="Kosongkan kalau mau sama dengan judul">
     </div>
 
     <div class="field">
       <label>Deskripsi baru (meta description)</label>
       <input type="text" id="descNew" placeholder="cth: Deskripsi singkat tentang landing page kamu">
+    </div>
+
+    <div class="field">
+      <label>Meta keywords baru (SEO, pisahkan dengan koma)</label>
+      <input type="text" id="metaKeywords" placeholder="cth: sepatu murah, sepatu kece, toko online">
     </div>
 
     <div class="field-row">
@@ -164,12 +179,24 @@
       <input type="text" id="iconNew" placeholder="https://cdn-kamu.com/favicon.ico">
     </div>
 
-    <div class="field">
-      <label>Link lain yang mau diganti (login, tombol CTA, WhatsApp, sosial media, gambar, dll)</label>
-      <div id="imgRows"></div>
-      <button type="button" class="btn-ghost" id="addImgRow">+ Tambah link</button>
-      <p class="hint">Cth: link lama <code>https://situs-lama.com/login</code> → link baru <code>https://situs-baru.com/login</code>. Bisa ditambah berkali-kali buat link login, daftar, WhatsApp, Instagram, dst.</p>
-    </div>
+    <div class="subsection-title">Link Lain (login, CTA, WhatsApp, sosial media, gambar, dll)</div>
+    <div id="linkRows" class="pair-rows"></div>
+    <button type="button" class="btn-ghost" id="addLinkRow">+ Tambah link</button>
+    <p class="hint">Cth: link lama <code>https://situs-lama.com/login</code> → link baru <code>https://situs-baru.com/login</code>.</p>
+
+    <div class="subsection-title">Ganti FAQ (pertanyaan/jawaban lama → baru)</div>
+    <div id="faqRows" class="pair-rows"></div>
+    <button type="button" class="btn-ghost" id="addFaqRow">+ Tambah FAQ</button>
+    <p class="hint">Isi teks pertanyaan/jawaban <b>persis</b> seperti yang ada di source halaman (cek dulu lewat tab "Tempel Kode HTML" kalau perlu), lalu tulis versi barunya.</p>
+
+    <div class="subsection-title">Ganti Review / Testimoni</div>
+    <div id="reviewRows" class="pair-rows"></div>
+    <button type="button" class="btn-ghost" id="addReviewRow">+ Tambah review</button>
+
+    <div class="subsection-title">Ganti Kata Kunci (keyword) di Isi Konten</div>
+    <div id="keywordRows" class="pair-rows"></div>
+    <button type="button" class="btn-ghost" id="addKeywordRow">+ Tambah keyword</button>
+    <p class="hint">Ini beda dari meta keywords di atas — ini ganti kata/frasa yang muncul di teks isi halaman (untuk SEO on-page).</p>
   </div>
 
   <!-- 3. KEAMANAN -->
@@ -204,7 +231,7 @@
   </div>
 
   <footer>
-    Deteksi script berbahaya berbasis pola/heuristik (bukan antivirus lengkap). Penggantian branding dilakukan lewat pencarian teks/link persis seperti yang kamu isi — pastikan "link lama" yang kamu masukin sesuai dengan yang benar-benar ada di source halaman. Selalu review hasil akhir sebelum dipakai di production.
+    Deteksi script berbahaya berbasis pola/heuristik (bukan antivirus lengkap). Semua penggantian konten (brand, FAQ, review, keyword, link) dilakukan lewat pencarian teks persis seperti yang kamu isi — pastikan teks "lama" yang kamu masukin sesuai dengan yang benar-benar ada di source halaman. Selalu review hasil akhir sebelum dipakai di production.
   </footer>
 </div>
 
@@ -228,25 +255,58 @@
   tabUrl.addEventListener('click', () => switchSrc('url'));
   tabHtml.addEventListener('click', () => switchSrc('html'));
 
-  // --- Dynamic image replacement rows ---
-  const imgRows = document.getElementById('imgRows');
-  const addImgRow = document.getElementById('addImgRow');
-
   function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
   function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  function addRow(oldVal, newVal){
-    const row = document.createElement('div');
-    row.className = 'img-row';
-    row.innerHTML = `
-      <input type="text" class="imgOld" placeholder="Link lama (cth: /login lama atau https://wa.me/62xxx lama)" value="${oldVal ? escapeAttr(oldVal) : ''}">
-      <input type="text" class="imgNew" placeholder="Link baru" value="${newVal ? escapeAttr(newVal) : ''}">
-      <button type="button" class="btn-secondary removeRow">Hapus</button>
-    `;
-    row.querySelector('.removeRow').addEventListener('click', () => row.remove());
-    imgRows.appendChild(row);
+  // --- Generic pair-row builder (dipakai buat link, FAQ, review, keyword) ---
+  function makePairRowAdder(containerId, oldPlaceholder, newPlaceholder, useTextarea){
+    const container = document.getElementById(containerId);
+    function addRow(oldVal, newVal){
+      const row = document.createElement('div');
+      row.className = 'pair-row';
+
+      const oldField = document.createElement(useTextarea ? 'textarea' : 'input');
+      if(!useTextarea) oldField.type = 'text';
+      oldField.className = 'pOld';
+      oldField.placeholder = oldPlaceholder;
+      if(useTextarea) oldField.value = oldVal || ''; else oldField.value = oldVal || '';
+
+      const newField = document.createElement(useTextarea ? 'textarea' : 'input');
+      if(!useTextarea) newField.type = 'text';
+      newField.className = 'pNew';
+      newField.placeholder = newPlaceholder;
+      newField.value = newVal || '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn-secondary removeRow';
+      removeBtn.textContent = 'Hapus';
+      removeBtn.addEventListener('click', () => row.remove());
+
+      row.appendChild(oldField);
+      row.appendChild(newField);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+    }
+    return { container, addRow };
   }
-  addImgRow.addEventListener('click', () => addRow());
+
+  const linkRB = makePairRowAdder('linkRows', 'Link lama (cth: /login lama)', 'Link baru', false);
+  const faqRB = makePairRowAdder('faqRows', 'Pertanyaan/jawaban lama (persis)', 'Versi baru', true);
+  const reviewRB = makePairRowAdder('reviewRows', 'Teks review lama (persis)', 'Versi baru', true);
+  const keywordRB = makePairRowAdder('keywordRows', 'Kata/frasa lama', 'Kata/frasa baru', false);
+
+  document.getElementById('addLinkRow').addEventListener('click', () => linkRB.addRow());
+  document.getElementById('addFaqRow').addEventListener('click', () => faqRB.addRow());
+  document.getElementById('addReviewRow').addEventListener('click', () => reviewRB.addRow());
+  document.getElementById('addKeywordRow').addEventListener('click', () => keywordRB.addRow());
+
+  function readPairs(container){
+    return Array.from(container.querySelectorAll('.pair-row')).map(row => ({
+      old: row.querySelector('.pOld').value.trim(),
+      new: row.querySelector('.pNew').value.trim(),
+    })).filter(r => r.old);
+  }
 
   // --- Process ---
   const processBtn = document.getElementById('processBtn');
@@ -293,20 +353,20 @@
       payload.html = html;
     }
 
-    const imageReplacements = Array.from(imgRows.querySelectorAll('.img-row')).map(row => ({
-      old: row.querySelector('.imgOld').value.trim(),
-      new: row.querySelector('.imgNew').value.trim(),
-    })).filter(r => r.old);
-
     payload.rebrand = {
       brandOld: document.getElementById('brandOld').value.trim(),
       brandNew: document.getElementById('brandNew').value,
       title: document.getElementById('titleNew').value.trim(),
+      h1: document.getElementById('h1New').value.trim(),
       description: document.getElementById('descNew').value.trim(),
+      metaKeywords: document.getElementById('metaKeywords').value.trim(),
       logoOld: document.getElementById('logoOld').value.trim(),
       logoNew: document.getElementById('logoNew').value.trim(),
       iconNew: document.getElementById('iconNew').value.trim(),
-      linkReplacements: imageReplacements,
+      linkReplacements: readPairs(linkRB.container),
+      faqReplacements: readPairs(faqRB.container),
+      reviewReplacements: readPairs(reviewRB.container),
+      keywordReplacements: readPairs(keywordRB.container),
     };
 
     processBtn.disabled = true;
@@ -402,8 +462,11 @@
     }
   });
 
-  // Mulai dengan 1 baris kosong buat kemudahan
-  addRow();
+  // Mulai dengan 1 baris kosong di tiap section biar gampang
+  linkRB.addRow();
+  faqRB.addRow();
+  reviewRB.addRow();
+  keywordRB.addRow();
 })();
 </script>
 </body>
