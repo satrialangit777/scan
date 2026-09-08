@@ -5,13 +5,14 @@
 //         atau { mode: "html", html: "<html>...</html>" }
 
 // ------------------------------------------------------------------
-// 0. REBRANDING (opsional) — ganti nama brand, title, deskripsi, logo, icon, gambar lain
+// 0. REBRANDING (opsional) — ganti nama brand, title+h1, deskripsi, logo, icon,
+//    link lain, FAQ, review/testimoni, dan keyword
 // ------------------------------------------------------------------
 function applyRebrand(html, rebrand) {
   if (!rebrand) return html;
   let out = html;
 
-  // Title
+  // Title + H1 (disinkronkan biar sama, kecuali H1 di-override manual)
   if (rebrand.title && rebrand.title.trim()) {
     const newTitle = rebrand.title.trim();
     if (/<title[^>]*>[\s\S]*?<\/title>/i.test(out)) {
@@ -19,6 +20,19 @@ function applyRebrand(html, rebrand) {
     } else if (/<head[^>]*>/i.test(out)) {
       out = out.replace(/<head([^>]*)>/i, `<head$1>\n<title>${escapeForHtmlText(newTitle)}</title>`);
     }
+
+    // H1: default ikut sama dengan title, kecuali user isi field H1 sendiri
+    const h1Text = (rebrand.h1 && rebrand.h1.trim()) ? rebrand.h1.trim() : newTitle;
+    if (/<h1[^>]*>[\s\S]*?<\/h1>/i.test(out)) {
+      out = out.replace(/<h1([^>]*)>[\s\S]*?<\/h1>/gi, (m, attrs) => `<h1${attrs}>${escapeForHtmlText(h1Text)}</h1>`);
+    } else if (/<body[^>]*>/i.test(out)) {
+      // Kalau memang belum ada H1 sama sekali, sisipkan satu di awal body
+      out = out.replace(/<body([^>]*)>/i, `<body$1>\n<h1>${escapeForHtmlText(h1Text)}</h1>`);
+    }
+  } else if (rebrand.h1 && rebrand.h1.trim()) {
+    // Kalau cuma H1 yang diisi (title dikosongkan), tetap proses H1 saja
+    const h1Text = rebrand.h1.trim();
+    out = out.replace(/<h1([^>]*)>[\s\S]*?<\/h1>/gi, (m, attrs) => `<h1${attrs}>${escapeForHtmlText(h1Text)}</h1>`);
   }
 
   // Meta description (+ og:description, twitter:description best-effort)
@@ -32,16 +46,21 @@ function applyRebrand(html, rebrand) {
       `<meta name="twitter:description" content="${desc}">`, false);
   }
 
+  // Meta keywords baru (SEO) — replace/insert <meta name="keywords" content="...">
+  if (rebrand.metaKeywords && rebrand.metaKeywords.trim()) {
+    const kw = rebrand.metaKeywords.trim().replace(/"/g, '&quot;');
+    out = replaceOrInsertMeta(out, /<meta\s+name=["']keywords["'][^>]*>/i,
+      `<meta name="keywords" content="${kw}">`);
+  }
+
   // Nama brand: ganti semua kemunculan teks (case-insensitive)
   if (rebrand.brandOld && rebrand.brandOld.trim() && rebrand.brandNew !== undefined) {
-    const escaped = rebrand.brandOld.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(escaped, 'gi'), rebrand.brandNew);
+    out = replaceAllLiteral(out, rebrand.brandOld.trim(), rebrand.brandNew, true);
   }
 
   // Logo: ganti semua kemunculan URL/path logo lama dengan yang baru
   if (rebrand.logoOld && rebrand.logoOld.trim() && rebrand.logoNew && rebrand.logoNew.trim()) {
-    const escaped = rebrand.logoOld.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    out = out.replace(new RegExp(escaped, 'g'), rebrand.logoNew.trim());
+    out = replaceAllLiteral(out, rebrand.logoOld.trim(), rebrand.logoNew.trim(), false);
   }
 
   // Icon / favicon baru — ganti semua <link rel="icon|shortcut icon|apple-touch-icon" href="...">
@@ -55,16 +74,30 @@ function applyRebrand(html, rebrand) {
     }
   }
 
-  // Daftar penggantian link lain (login, CTA, sosial media, gambar, dll): [{old, new}, ...]
-  if (Array.isArray(rebrand.linkReplacements)) {
-    rebrand.linkReplacements.forEach(({ old: oldUrl, new: newUrl }) => {
-      if (!oldUrl || !oldUrl.trim() || newUrl === undefined) return;
-      const escaped = oldUrl.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      out = out.replace(new RegExp(escaped, 'g'), newUrl.trim());
-    });
-  }
+  // Daftar penggantian generik: link lain, FAQ, review/testimoni, keyword —
+  // semuanya pakai mekanisme sama (cari teks/link persis, ganti dengan yang baru).
+  out = applyReplacementList(out, rebrand.linkReplacements);
+  out = applyReplacementList(out, rebrand.faqReplacements);
+  out = applyReplacementList(out, rebrand.reviewReplacements);
+  out = applyReplacementList(out, rebrand.keywordReplacements);
 
   return out;
+}
+
+function applyReplacementList(html, list) {
+  if (!Array.isArray(list)) return html;
+  let out = html;
+  list.forEach(({ old: oldText, new: newText }) => {
+    if (!oldText || !oldText.trim() || newText === undefined) return;
+    out = replaceAllLiteral(out, oldText.trim(), newText, false);
+  });
+  return out;
+}
+
+function replaceAllLiteral(html, find, replaceWith, caseInsensitive) {
+  const escaped = find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const flags = caseInsensitive ? 'gi' : 'g';
+  return html.replace(new RegExp(escaped, flags), () => replaceWith);
 }
 
 function escapeForHtmlText(s) {
@@ -84,9 +117,6 @@ function replaceOrInsertMeta(html, findRe, newTag, insertIfMissing = true) {
 // ------------------------------------------------------------------
 // 1. ATURAN DETEKSI
 // ------------------------------------------------------------------
-// scope: 'html'  -> dicek di konten HTML (termasuk isi <script> inline)
-// scope: 'js'    -> juga dicek di file .js eksternal yang ikut di-fetch
-// scope: 'both'  -> dicek di keduanya
 const RULES = [
   { id: 'eval', level: 'danger', scope: 'both', label: 'Penggunaan eval()',
     re: /\beval\s*\(/i,
@@ -142,10 +172,6 @@ function escapeSample(s) {
   return s.length > 200 ? s.slice(0, 200) + '…' : s;
 }
 
-// Analisis + bersihkan konten HTML utama.
-// autoRemove=false (default): semua temuan hanya dilaporkan, TIDAK ada yang dihapus —
-// supaya script legit yang kebetulan match pola (tracking pixel, chat widget, dll) gak ikut rusak.
-// autoRemove=true: baru script/iframe dengan level 'danger' dihapus.
 function scanAndCleanHtml(html, autoRemove) {
   const findings = [];
 
@@ -194,8 +220,6 @@ function scanAndCleanHtml(html, autoRemove) {
     cleaned = cleaned.replace(new RegExp(jsUriRule.re.source, 'gi'), 'onclick="/* dihapus: javascript: URI mencurigakan */"');
   }
 
-  // Aturan http_script / shorturl_script cukup dilaporkan (tag <script src> tetap dibiarkan
-  // karena file eksternalnya sendiri akan dianalisis terpisah).
   ['http_script', 'shorturl_script'].forEach(id => {
     const rule = RULES.find(r => r.id === id);
     const matches = html.match(new RegExp(rule.re.source, 'gi')) || [];
@@ -208,7 +232,6 @@ function scanAndCleanHtml(html, autoRemove) {
   return { cleaned, findings };
 }
 
-// Analisis file .js eksternal (tanpa modifikasi — kita tidak punya akses ubah file remote)
 function scanJsContent(jsText) {
   const findings = [];
   RULES.filter(r => r.scope === 'js' || r.scope === 'both').forEach(rule => {
@@ -309,7 +332,6 @@ export async function onRequestPost(context) {
   const rebrandedHtml = applyRebrand(mainHtml, body.rebrand);
   const { cleaned, findings } = scanAndCleanHtml(rebrandedHtml, autoRemove);
 
-  // Ambil & scan file .js eksternal (khusus mode URL, karena butuh base URL absolut)
   const externalResults = [];
   if (mode === 'url') {
     const srcs = extractScriptSrcs(mainHtml, baseUrl).slice(0, MAX_EXTERNAL_SCRIPTS);
